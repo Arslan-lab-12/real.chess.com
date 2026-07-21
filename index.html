@@ -952,3 +952,160 @@ Enjoy the game!`);
     </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💰 रियल मनी चेस गेम (25% कमीशन) 💰</title>
+    <!-- बिना सर्वर के रीयल-टाइम डेटा सिंक करने की फ्री लाइब्रेरी -->
+    <script src="https://pubnub.com"></script>
+    <style>
+        body { text-align: center; font-family: sans-serif; background: #222; color: white; padding: 10px; }
+        h1 { font-size: 24px; color: #f1c40f; margin-bottom: 5px; }
+        
+        .board-container { display: flex; flex-direction: column; width: 320px; margin: 20px auto; border: 4px solid #333; }
+        .board-row { display: flex; }
+        .square { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer; user-select: none; }
+        .white-sq { background: #f0d9b5; color: #b58863; }
+        .black-sq { background: #b58863; color: #f0d9b5; }
+        .selected { background: #7f8c8d !important; }
+        
+        .wallet-box { background: #333; padding: 15px; display: inline-block; border-radius: 8px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); width: 290px; }
+        #balance { font-weight: bold; color: #2ecc71; font-size: 18px; }
+        button { background: #28a745; color: white; border: none; padding: 12px 24px; font-size: 16px; cursor: pointer; border-radius: 5px; font-weight: bold; width: 100%; margin-top: 10px; }
+        #status-text { margin-top: 15px; color: #bdc3c7; font-style: italic; font-size: 16px; min-height: 24px; }
+    </style>
+</head>
+<body>
+
+    <h1>💰 रियल मनी चेस 💰</h1>
+    <p style="margin-top:0; color:#bbb;">जीत पर केवल 25% प्लेटफॉर्म फीस</p>
+
+    <div class="wallet-box">
+        <p>आपका वॉलेट बैलेंस: <span id="balance">₹500</span></p>
+        <p>मैच एंट्री फीस: <span style="color:#e74c3c; font-weight:bold;">₹100</span></p>
+        <button id="joinBtn" onclick="startMatch()">मैच जॉइन करें</button>
+    </div>
+
+    <div id="status-text">नेटवर्क कनेक्ट हो रहा है...</div>
+
+    <div class="board-container" id="chessBoard"></div>
+
+    <script>
+        // फ्री पब्लिक कीज़ (बिना सर्वर के दोनों मोबाइल को सीधे जोड़ने के लिए)
+        const pubnub = new PubNub({
+            publishKey: 'pub-c-cb6edb27-4c47-49f9-bd89-8d19597775a9',
+            subscribeKey: 'sub-c-572c64b5-fb10-4ea5-b91c-7f51b9e078ba',
+            userId: "user_" + Math.floor(Math.random() * 100000)
+        });
+
+        var isGameActive = false;
+        var selectedSquare = null;
+        var gameRoom = "global_chess_room_123";
+
+        var boardState = [
+            ['♜', '♞', '♝', '♛', '♚', '♝', '♞', '♜'],
+            ['♟', '♟', '♟', '♟', '♟', '♟', '♟', '♟'],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['♙', '♙', '♙', '♙', '♙', '♙', '♙', '♙'],
+            ['♖', '♘', '♗', '♕', '♔', '♗', '♘', '♖']
+        ];
+
+        // नेटवर्क मैसेजेस सुनना (दूसरे मोबाइल की चाल को रिसीव करना)
+        pubnub.addListener({
+            message: function(event) {
+                if (event.message && event.message.board) {
+                    boardState = event.message.board;
+                    createBoard();
+                    
+                    if(!isGameActive) {
+                        isGameActive = true;
+                        document.getElementById("status-text").innerText = "मैच शुरू हो गया है! अपनी चाल चलें।";
+                    } else {
+                        document.getElementById("status-text").innerText = "आपकी बारी है, सोचकर चाल चलें।";
+                    }
+                }
+            }
+        });
+
+        // रूम सब्सक्राइब करना
+        pubnub.subscribe({ channels: [gameRoom] });
+        
+        // नेटवर्क रेडी होने पर टेक्स्ट बदलना
+        setTimeout(() => {
+            document.getElementById("status-text").innerText = "नेटवर्क रेडी है। मैच जॉइन करें!";
+        }, 1000);
+
+        function createBoard() {
+            const boardDiv = document.getElementById("chessBoard");
+            boardDiv.innerHTML = "";
+            for (let r = 0; r < 8; r++) {
+                let rowDiv = document.createElement("div");
+                rowDiv.className = "board-row";
+                for (let c = 0; c < 8; c++) {
+                    let sq = document.createElement("div");
+                    sq.className = "square " + ((r + c) % 2 === 0 ? "white-sq" : "black-sq");
+                    sq.innerHTML = boardState[r][c];
+                    sq.onclick = function() { handleSquareClick(r, c); };
+                    rowDiv.appendChild(sq);
+                }
+                boardDiv.appendChild(rowDiv);
+            }
+        }
+
+        function startMatch() {
+            document.getElementById("joinBtn").disabled = true;
+            document.getElementById("joinBtn").style.background = "#555";
+            document.getElementById("joinBtn").innerText = "खिलाड़ी से कनेक्ट हो रहे हैं...";
+            document.getElementById("status-text").innerText = "विरोधी खिलाड़ी के मैच जॉइन करने का इंतज़ार करें...";
+            document.getElementById("balance").innerText = "₹400"; 
+            
+            // सिग्नल भेजना कि मैं रूम में आ चुका हूँ
+            pubnub.publish({
+                channel: gameRoom,
+                message: { action: "join", board: boardState }
+            });
+        }
+
+        function handleSquareClick(r, c) {
+            if (!isGameActive) return;
+
+            if (selectedSquare === null) {
+                if (boardState[r][c] !== "") {
+                    selectedSquare = { row: r, col: c };
+                    renderSelection(r, c);
+                }
+            } else {
+                let fromR = selectedSquare.row;
+                let fromC = selectedSquare.col;
+                
+                boardState[r][c] = boardState[fromR][fromC];
+                boardState[fromR][fromC] = "";
+                selectedSquare = null;
+                createBoard();
+
+                document.getElementById("status-text").innerText = "विरोधी खिलाड़ी की चाल का इंतज़ार है...";
+
+                // बिना किसी बैकएंड सर्वर के सीधे दूसरे मोबाइल पर नया बोर्ड भेजना
+                pubnub.publish({
+                    channel: gameRoom,
+                    message: { action: "move", board: boardState }
+                });
+            }
+        }
+
+        function renderSelection(r, c) {
+            createBoard();
+            let squares = document.getElementsByClassName("square");
+            let index = (r * 8) + c;
+            if(squares[index]) squares[index].classList.add("selected");
+        }
+
+        createBoard();
+    </script>
+</body>
+</html>
